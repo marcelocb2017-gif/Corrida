@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b7a6b">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Diário de Corridas</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+/* VOICE: painel de bordo do entregador, direto e numérico.
+   IDEA: o mostrador da moto — números grandes, leitura num relance.
+   PICTURE: o veredito da corrida em cor cheia (verde, amarelo, vermelho).
+   COLOUR/TYPE: verde-petróleo dominante, Barlow Condensed nos números.
+   LAYOUT: uma coluna para uma mão só, abas fixas embaixo. */
+:root{
+  --bg:#eef1f4; --surface:#ffffff; --ink:#14202b; --muted:#5a6a79; --line:#d6dde4;
+  --accent:#0b7a6b; --accent-ink:#ffffff; --good:#17794a; --bad:#bf3a2b; --warn:#8a5a00; --warn-bg:#fff3d6;
+  --ifood:#e5484d; --p99:#d49a06;
+  --v-good:#17794a; --v-warn:#a86400; --v-bad:#bf3a2b;
+  --k-gas:#d9822b; --k-oil:#5f7590; --k-maint:#2f7fc1; --k-fix:#8d6aa8;
+  --display:'Barlow Condensed','Arial Narrow',sans-serif; --body:'Barlow',system-ui,-apple-system,'Segoe UI',sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1419; --surface:#17202a; --ink:#e8eef3; --muted:#93a3b3; --line:#2a3744;
+    --accent:#3dd6b5; --accent-ink:#04231d; --good:#4ade80; --bad:#ff8a7e; --warn:#f2c14e; --warn-bg:#3a2e10;
+    --ifood:#ff6a6f; --p99:#f2bf2f; --v-good:#1d7a4c; --v-warn:#946000; --v-bad:#b03a2e;
+    --k-gas:#f0a04b; --k-oil:#8aa0bb; --k-maint:#5aa7e6; --k-fix:#b892d4; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1419; --surface:#17202a; --ink:#e8eef3; --muted:#93a3b3; --line:#2a3744;
+  --accent:#3dd6b5; --accent-ink:#04231d; --good:#4ade80; --bad:#ff8a7e; --warn:#f2c14e; --warn-bg:#3a2e10;
+  --ifood:#ff6a6f; --p99:#f2bf2f; --v-good:#1d7a4c; --v-warn:#946000; --v-bad:#b03a2e;
+  --k-gas:#f0a04b; --k-oil:#8aa0bb; --k-maint:#5aa7e6; --k-fix:#b892d4; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.4;-webkit-text-size-adjust:100%;overflow-x:clip}
+#app{max-width:560px;margin:0 auto;padding:calc(14px + env(safe-area-inset-top)) 16px calc(92px + env(safe-area-inset-bottom))}
+h1,h2,h3{margin:0;font-family:var(--display);font-weight:600;letter-spacing:.01em;text-wrap:balance}
+h2{font-size:24px}
+h3{font-size:19px;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:.06em}
+.stack{display:flex;flex-direction:column;gap:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.card.hero{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.num{font-family:var(--display);font-weight:600;font-variant-numeric:tabular-nums;line-height:1}
+.muted{color:var(--muted)}
+.small{font-size:14px}
+.row{display:flex;gap:10px;align-items:center}
+.row.between{justify-content:space-between}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;min-width:0}
+.tile .lbl{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.tile .num{font-size:32px;margin-top:6px}
+.tile .sub{font-size:13px;color:var(--muted);margin-top:4px}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.field .lbl{font-size:14px;font-weight:600}
+.field .hint{font-size:13px;color:var(--muted)}
+input,select,textarea{font:inherit;font-size:20px;color:var(--ink);background:var(--bg);border:1.5px solid var(--line);border-radius:10px;padding:0 12px;height:54px;width:100%;min-width:0}
+input[type="datetime-local"],input[type="date"]{font-size:17px}
+select{font-size:18px}
+textarea{height:140px;padding:10px 12px;font-size:14px;font-family:ui-monospace,monospace}
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.btn{font:inherit;font-weight:600;font-size:18px;min-height:54px;border-radius:12px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);padding:0 18px;cursor:pointer;width:100%}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.btn.danger{color:var(--bad);border-color:var(--bad)}
+.btn.armed{background:var(--bad);color:#fff;border-color:transparent}
+.btn.small{min-height:44px;font-size:15px;width:auto}
+.notice{background:var(--warn-bg);color:var(--warn);border-radius:10px;padding:10px 12px;font-size:14px}
+.error{color:var(--bad);font-size:15px;font-weight:600}
+.error:empty{display:none}
+.plat{border-left:5px solid var(--line);padding-left:12px;display:flex;flex-direction:column;gap:10px}
+.plat.ifood{border-color:var(--ifood)} .plat.p99{border-color:var(--p99)}
+.plat .name{font-family:var(--display);font-size:21px;font-weight:600}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:8px;flex:none}
+.timer{font-size:68px;letter-spacing:.02em}
+.profit{font-size:clamp(48px,15vw,64px)}
+.mnav{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.mnav button{width:48px;height:48px;border-radius:12px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font-size:22px;cursor:pointer;flex:none}
+.mnav button:disabled{opacity:.35}
+.mnav .lab{font-family:var(--display);font-size:24px;font-weight:600;text-align:center}
+.seg{display:grid;grid-template-columns:1fr 1fr;background:var(--surface);border:1.5px solid var(--line);border-radius:12px;padding:4px;gap:4px}
+.seg button{font:inherit;font-weight:600;font-size:16px;min-height:44px;border:0;border-radius:9px;background:none;color:var(--muted);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.list{display:flex;flex-direction:column}
+.item{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-top:1px solid var(--line);align-items:center;background:none;border-left:0;border-right:0;border-bottom:0;color:inherit;font:inherit;text-align:left;width:100%;cursor:pointer}
+.item:first-child{border-top:0}
+.item .l{min-width:0;display:flex;flex-direction:column;gap:2px}
+.item .r{text-align:right;white-space:nowrap}
+.item .t{font-weight:600}
+.bar{height:8px;border-radius:4px;background:var(--line);overflow:hidden}
+.bar>i{display:block;height:100%;background:var(--accent)}
+.bar.warn>i{background:var(--warn)} .bar.bad>i{background:var(--bad)}
+.split{display:flex;height:14px;border-radius:7px;overflow:hidden;background:var(--line)}
+.split>i{display:block;height:100%}
+.chart{display:flex;align-items:flex-end;gap:2px;height:120px;border-bottom:1px solid var(--line);padding-top:6px}
+.chart>i{flex:1;min-width:2px;background:var(--accent);border-radius:2px 2px 0 0;opacity:.9}
+.chart>i.zero{background:var(--line);height:2px!important}
+.chart.wk{gap:8px}
+.axis{display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}
+.axis.wk span{flex:1;text-align:center}
+.krow{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.krow:first-child{border-top:0}
+.krow .v{font-family:var(--display);font-size:24px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.krow .s{font-size:13px;color:var(--muted)}
+.krow.total .v{font-size:28px}
+.feat{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.feat .num{font-size:52px}
+.verdict{border-radius:14px;padding:16px;color:#fff;display:flex;flex-direction:column;gap:8px;background:var(--surface);border:1.5px dashed var(--line)}
+.verdict.good{background:var(--v-good);border:0} .verdict.warn{background:var(--v-warn);border:0} .verdict.bad{background:var(--v-bad);border:0}
+.verdict .big{font-family:var(--display);font-size:40px;font-weight:700;letter-spacing:.02em;line-height:1}
+.verdict .rk{font-family:var(--display);font-size:clamp(44px,14vw,60px);font-weight:600;line-height:1;font-variant-numeric:tabular-nums}
+.verdict .ln{display:flex;justify-content:space-between;gap:10px;font-size:16px}
+.verdict.empty{color:var(--muted)}
+.tbl{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.tbl th,.tbl td{padding:9px 4px;border-top:1px solid var(--line);text-align:right;white-space:nowrap}
+.tbl th:first-child,.tbl td:first-child{text-align:left}
+.tbl thead th{border-top:0;font-size:13px;color:var(--muted);font-weight:600}
+.tbl td b{font-family:var(--display);font-size:21px}
+.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);z-index:5}
+.tabs>div{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr)}
+.tabs button{background:none;border:0;color:var(--muted);font:inherit;font-size:12.5px;font-weight:600;padding:10px 2px 8px;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;min-height:60px}
+.tabs button[aria-current="page"]{color:var(--accent)}
+.tabs svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+#sheet:empty{display:none}
+#sheet{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10;display:flex;align-items:flex-end;justify-content:center}
+#sheet .panel{background:var(--bg);width:100%;max-width:560px;max-height:94%;overflow:auto;border-radius:18px 18px 0 0;padding:16px 16px calc(20px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:14px}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:600;font-size:15px;z-index:20;display:none;max-width:90%}
+@media (prefers-reduced-motion: no-preference){ .btn{transition:transform .08s} .btn:active{transform:scale(.98)} .verdict{transition:background-color .15s} }
+</style>
+</head>
+<body>
+<div id="app"><div id="main" class="stack"></div></div>
+<nav class="tabs" aria-label="Seções"><div id="tabs"></div></nav>
+<div id="sheet" role="dialog" aria-modal="true" aria-label="Editar"></div>
+<div id="toast" role="status"></div>
+
+<script>
+//#pure-start
+const pad = n => String(n).padStart(2, '0');
+function ymd(ts){ const d = new Date(ts); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+function monthKey(ts){ return ymd(ts).slice(0, 7); }
+function dateTs(s){ const [y, m, d] = String(s).split('-').map(Number); return new Date(y, m - 1, d, 12).getTime(); }
+function num(v){
+  if (v == null) return NaN;
+  let s = String(v).trim().replace(/\s/g, '').replace(/^R\$/i, '');
+  if (!s) return NaN;
+  if (/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');
+  else if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+  const n = Number(s);
+  return isFinite(n) ? n : NaN;
+}
+const DEF = { gh:4, gf:120, gm:4000, gas:6.2, kml:35, oilEvery:2000, oilCost:60, oilLastKm:null, seguro:0, parcela:0, fixOutros:0, kmMes:2500, minKm:0.5, maintKm:0.05, closeDow:0, payIfood:3, pay99:3 };
+const MAINT = ['Manutenção', 'Pneus', 'Lavagem', 'Outros'];
+const LEGACY_FIX = ['Seguro / IPVA', 'Parcela da moto'];
+function fixedMonth(c){ return (c.seguro || 0) + (c.parcela || 0) + (c.fixOutros || 0); }
+function jm(j){
+  const km = Math.max(0, (j.endKm || 0) - (j.startKm || 0));
+  const fat = (j.ifoodFat || 0) + (j.p99Fat || 0);
+  const ent = (j.ifoodEnt || 0) + (j.p99Ent || 0);
+  const hours = Math.max(0, ((j.endAt || 0) - (j.startAt || 0)) / 36e5);
+  return { km, fat, ent, hours, rkm: km > 0 ? fat / km : null, ticket: ent > 0 ? fat / ent : null, rh: hours > 0 ? fat / hours : null };
+}
+function sumJourneys(js, inRange){
+  const t = { km:0, fat:0, ent:0, hours:0, n:0, plat:{ ifood:{fat:0,ent:0,km:0}, p99:{fat:0,ent:0,km:0} } };
+  for (const j of js){
+    if (!inRange(j)) continue;
+    const m = jm(j);
+    t.n++; t.km += m.km; t.fat += m.fat; t.ent += m.ent; t.hours += m.hours;
+    for (const p of ['ifood', 'p99']){
+      const f = j[p + 'Fat'] || 0, e = j[p + 'Ent'] || 0, P = t.plat[p];
+      P.fat += f; P.ent += e;
+      if (m.ent > 0) P.km += m.km * e / m.ent;
+    }
+  }
+  return t;
+}
+/* Mês: gasolina real lançada (ou estimada), óleo diluído por km, manutenção lançada, fixos do mês (proporcionais no mês corrente). */
+function aggregate(js, cs, mk, c, fixFactor){
+  if (fixFactor == null) fixFactor = 1;
+  const t = sumJourneys(js, j => monthKey(j.startAt) === mk);
+  t.days = {};
+  for (const j of js){ if (monthKey(j.startAt) !== mk) continue; const d = Number(ymd(j.startAt).slice(8)); t.days[d] = (t.days[d] || 0) + jm(j).fat; }
+  t.cats = {}; t.fuel = 0; t.liters = 0; t.maint = 0; t.oilLanc = 0; t.legacyFix = 0; t.lanc = 0;
+  for (const x of cs){
+    if (String(x.date).slice(0, 7) !== mk) continue;
+    const v = x.valor || 0;
+    t.lanc += v; t.cats[x.cat] = (t.cats[x.cat] || 0) + v;
+    if (x.cat === 'Gasolina'){ t.fuel += v; t.liters += x.litros || 0; }
+    else if (x.cat === 'Óleo') t.oilLanc += v;
+    else if (LEGACY_FIX.includes(x.cat)) t.legacyFix += v;
+    else t.maint += v;
+  }
+  t.gasEst = t.fuel === 0 && t.km > 0;
+  t.cGas = t.fuel > 0 ? t.fuel : t.km * c.gas / c.kml;
+  t.cOil = t.km * c.oilCost / c.oilEvery;
+  t.cMaint = t.maint;
+  const fm = fixedMonth(c);
+  t.fixFromCfg = fm > 0;
+  t.cFix = fm > 0 ? fm * fixFactor : t.legacyFix;
+  t.costs = t.cGas + t.cOil + t.cMaint + t.cFix;
+  t.profit = t.fat - t.costs;
+  const k = x => t.km > 0 ? x / t.km : null;
+  t.rkm = k(t.fat); t.kGas = k(t.cGas); t.kOil = k(t.cOil); t.kMaint = k(t.cMaint); t.kFix = k(t.cFix); t.kCost = k(t.costs); t.pkm = k(t.profit);
+  t.margin = t.fat > 0 ? t.profit / t.fat : null;
+  t.maintPct = t.fat > 0 ? t.cMaint / t.fat : null;
+  t.ticket = t.ent > 0 ? t.fat / t.ent : null;
+  t.rh = t.hours > 0 ? t.fat / t.hours : null;
+  t.kml = t.liters > 0 && t.km > 0 ? t.km / t.liters : null;
+  return t;
+}
+/* Custo por km para decidir corridas: parâmetros + manutenção real dos últimos 90 dias + fixos diluídos pelo km de 30 dias. */
+function rates(js, cs, c, now){
+  const f90 = now - 90 * 864e5, f30 = now - 30 * 864e5;
+  let km90 = 0, km30 = 0, maint = 0, first = Infinity;
+  for (const j of js){ if (j.status !== 'done') continue; const m = jm(j); first = Math.min(first, j.startAt); if (j.startAt >= f90) km90 += m.km; if (j.startAt >= f30) km30 += m.km; }
+  for (const x of cs){ if (MAINT.includes(x.cat) && dateTs(x.date) >= f90) maint += x.valor || 0; }
+  const histDays = first === Infinity ? 0 : (now - first) / 864e5;
+  const gas = c.gas / c.kml, oil = c.oilCost / c.oilEvery;
+  const maintOk = histDays >= 60 && km90 >= 500, mt = maintOk ? maint / km90 : c.maintKm;
+  const kmRefReal = histDays >= 28 && km30 >= 300, kmRef = kmRefReal ? km30 : c.kmMes;
+  const fix = kmRef > 0 ? fixedMonth(c) / kmRef : 0;
+  const variable = gas + oil + mt;
+  return { gas, oil, maint:mt, maintOk, km90, fix, kmRef, kmRefReal, variable, total:variable + fix, min:variable + fix + c.minKm };
+}
+function judge(valor, km, r, minKm){
+  if (!(valor > 0) || !(km > 0)) return null;
+  const cv = km * r.variable, ct = km * r.total, lucro = valor - ct, lkm = lucro / km;
+  const level = lucro < 0 ? 'bad' : lkm < minKm ? 'warn' : 'good';
+  return { rkm: valor / km, cv, ct, lucro, lkm, level, coversVar: valor >= cv };
+}
+function weekRange(ts, closeDow){
+  const d = new Date(ts);
+  const add = (closeDow - d.getDay() + 7) % 7;
+  const end = new Date(d.getFullYear(), d.getMonth(), d.getDate() + add, 23, 59, 59, 999);
+  const start = new Date(end.getFullYear(), end.getMonth(), end.getDate() - 6, 0, 0, 0, 0);
+  return { start:start.getTime(), end:end.getTime() };
+}
+function payDate(end, closeDow, payDow){
+  const off = ((payDow - closeDow + 7) % 7) || 7;
+  const e = new Date(end);
+  return new Date(e.getFullYear(), e.getMonth(), e.getDate() + off, 12).getTime();
+}
+function weekAgg(js, cs, R, r, c){
+  const inR = j => j.startAt >= R.start && j.startAt <= R.end;
+  const t = sumJourneys(js, inR);
+  t.days = [0, 0, 0, 0, 0, 0, 0];
+  for (const j of js){ if (!inR(j)) continue; const i = Math.round((dateTs(ymd(j.startAt)) - dateTs(ymd(R.start))) / 864e5); if (i >= 0 && i < 7) t.days[i] += jm(j).fat; }
+  t.lanc = 0;
+  for (const x of cs){ const ts = dateTs(x.date); if (ts >= R.start && ts <= R.end) t.lanc += x.valor || 0; }
+  t.cVar = t.km * r.variable;
+  t.cFix = fixedMonth(c) * 7 / 30;
+  t.costs = t.cVar + t.cFix;
+  t.profit = t.fat - t.costs;
+  t.rkm = t.km > 0 ? t.fat / t.km : null;
+  t.pkm = t.km > 0 ? t.profit / t.km : null;
+  t.rh = t.hours > 0 ? t.fat / t.hours : null;
+  t.margin = t.fat > 0 ? t.profit / t.fat : null;
+  return t;
+}
+//#pure-end
+
+(function(){
+'use strict';
+const PLAT = [{ key:'ifood', name:'iFood', pay:'payIfood' }, { key:'p99', name:'99Food', pay:'pay99' }];
+const CATS = ['Gasolina','Manutenção','Óleo','Pneus','Lavagem','Outros'];
+const DOW = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+const TABS = [
+  { id:'jornada', label:'Jornada', icon:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>' },
+  { id:'corrida', label:'Corrida', icon:'<path d="M4 17a8 8 0 1 1 16 0"/><path d="M12 17l4-5"/><circle cx="12" cy="17" r="1.2"/>' },
+  { id:'custos',  label:'Custos',  icon:'<path d="M4 7h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4z"/><path d="M4 7l12-3v3"/><circle cx="16" cy="13.5" r="1"/>' },
+  { id:'resumo',  label:'Resumo',  icon:'<path d="M5 20V10M12 20V4M19 20v-7"/>' },
+  { id:'mais',    label:'Mais',    icon:'<path d="M5 12h.01M12 12h.01M19 12h.01"/>' }
+];
+const OLD = { mes:'resumo', historico:'mais' };
+const S = { docs:[], ready:false, kind:'', tab:'jornada', rview:'semana', month:monthKey(Date.now()), weekOff:0, sig:'', slow:false,
+  draft:{ start:{}, finish:{}, cost:{ cat:'Gasolina' }, edit:{}, cfg:{}, ride:{}, oil:{} }, cfgOpen:false, editId:null, savedId:null, armed:null, err:'', exportText:'', exportName:'', installEvt:null, focusRide:false };
+let store = null, dlPromise = null, armT = null, toastT = null;
+
+/* ---------- formatação ---------- */
+const brl = new Intl.NumberFormat('pt-BR', { style:'currency', currency:'BRL' });
+const fmtBRL = n => n == null || !isFinite(n) ? '—' : brl.format(n);
+const fmtN = (n, d = 1) => n == null || !isFinite(n) ? '—' : n.toLocaleString('pt-BR', { minimumFractionDigits:d, maximumFractionDigits:d });
+const fmtKm = n => n == null || !isFinite(n) ? '—' : fmtN(n, 1) + ' km';
+const fmtPct = n => n == null || !isFinite(n) ? '—' : fmtN(n * 100, 1) + '%';
+function fmtDur(h){ if (h == null || !isFinite(h)) return '—'; const m = Math.round(h * 60); return Math.floor(m / 60) + 'h ' + pad(m % 60) + 'min'; }
+function fmtClock(ms){ const s = Math.max(0, Math.floor(ms / 1000)); return pad(Math.floor(s / 3600)) + ':' + pad(Math.floor(s % 3600 / 60)) + ':' + pad(s % 60); }
+const fmtTime = ts => new Date(ts).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
+const fmtDay = ts => new Date(ts).toLocaleDateString('pt-BR', { weekday:'short', day:'2-digit', month:'2-digit' });
+const fmtDM = ts => new Date(ts).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' });
+const toLocalInput = ts => ymd(ts) + 'T' + pad(new Date(ts).getHours()) + ':' + pad(new Date(ts).getMinutes());
+function monthLabel(mk){ const [y, m] = mk.split('-').map(Number); const s = new Date(y, m - 1, 1).toLocaleDateString('pt-BR', { month:'long', year:'numeric' }); return s.charAt(0).toUpperCase() + s.slice(1); }
+function shiftMonth(mk, d){ const [y, m] = mk.split('-').map(Number); const dt = new Date(y, m - 1 + d, 1); return dt.getFullYear() + '-' + pad(dt.getMonth() + 1); }
+const kmStr = n => n == null ? '' : String(n).replace('.', ',');
+const clean = o => { const c = Object.assign({}, o); delete c.id; return c; };
+
+/* ---------- DOM ---------- */
+function h(tag, props, ...kids){
+  const el = document.createElement(tag);
+  if (props) for (const k in props){
+    const v = props[k];
+    if (v == null || v === false) continue;
+    if (k === 'class') el.className = v;
+    else if (k === 'text') el.textContent = v;
+    else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+    else if (k === 'value') el.value = v;
+    else if (k === 'selected') el.selected = true;
+    else el.setAttribute(k, v === true ? '' : v);
+  }
+  kids.flat(Infinity).forEach(c => { if (c == null || c === false) return; el.append(c.nodeType ? c : document.createTextNode(String(c))); });
+  return el;
+}
+const $ = id => document.getElementById(id);
+function toast(msg){ const t = $('toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(toastT); toastT = setTimeout(() => { t.style.display = 'none'; }, 2600); }
+function arm(key){ S.armed = key; render(); clearTimeout(armT); armT = setTimeout(() => { if (S.armed === key){ S.armed = null; render(); } }, 4000); }
+function go(tab){ location.hash = tab; S.tab = tab; S.armed = null; if (tab === 'corrida') S.focusRide = true; render(); window.scrollTo(0, 0); }
+
+/* ---------- dados ---------- */
+const journeys = () => S.docs.filter(d => d.type === 'journey');
+const costsAll = () => S.docs.filter(d => d.type === 'cost');
+const openJ = () => journeys().find(j => j.status === 'open');
+const doneJ = () => journeys().filter(j => j.status === 'done').sort((a, b) => b.startAt - a.startAt);
+const rawCfg = () => S.docs.find(d => d.id === 'cfg');
+function cfg(){ const r = rawCfg(), c = Object.assign({}, DEF); if (r) for (const k in DEF) if (r[k] !== undefined) c[k] = r[k]; return c; }
+function saveCfg(patch, msg){ const r = rawCfg(); return save('cfg', Object.assign({ type:'config', custom:!!(r && r.custom) }, cfg(), patch), msg); }
+function curRates(){ return rates(journeys(), costsAll(), cfg(), Date.now()); }
+function fixFactorFor(mk){ if (mk !== monthKey(Date.now())) return 1; const [y, m] = mk.split('-').map(Number); return new Date().getDate() / new Date(y, m, 0).getDate(); }
+function todayStats(){
+  const today = ymd(Date.now()); let hours = 0, fat = 0;
+  doneJ().forEach(j => { if (ymd(j.startAt) === today){ const m = jm(j); hours += m.hours; fat += m.fat; } });
+  const o = openJ(); if (o && ymd(o.startAt) === today) hours += (Date.now() - o.startAt) / 36e5;
+  return { hours, fat };
+}
+function daysHit(mk, g){
+  const days = {};
+  doneJ().forEach(j => { if (monthKey(j.startAt) !== mk) return; const k = ymd(j.startAt), m = jm(j); days[k] = days[k] || { h:0, f:0 }; days[k].h += m.hours; days[k].f += m.fat; });
+  return Object.values(days).filter(x => x.h >= g.gh || x.f >= g.gf).length;
+}
+function lastKm(){ const d = doneJ().slice().sort((a, b) => b.endAt - a.endAt)[0]; return d ? d.endKm : null; }
+function curKm(){ const o = openJ(), lk = lastKm(); return o ? Math.max(o.startKm, lk || 0) : lk; }
+
+async function initStore(){
+  let db = null, uid = null;
+  try {
+    const user = window.claude && await window.claude.use('user');
+    uid = user ? await user.id() : null;
+    db = window.claude && await window.claude.use('db');
+  } catch (e) { db = null; }
+  if (db && uid){
+    const col = db.collection('data/users/' + uid);
+    store = { kind:'db',
+      save:(id, o) => col.doc(id).set(o),
+      del:id => col.doc(id).delete(),
+      subscribe:(cb, err) => col.onSnapshot(s => cb(s.docs.map(d => Object.assign({}, d.data(), { id:d.id }))), err) };
+  } else {
+    let mem = {}; const KEY = 'diario-corridas-v1'; let cb0 = null;
+    try { mem = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { mem = {}; }
+    const persist = () => { try { localStorage.setItem(KEY, JSON.stringify(mem)); } catch (e) {} if (cb0) cb0(Object.keys(mem).map(k => Object.assign({}, mem[k], { id:k }))); };
+    store = { kind:'local',
+      save:async (id, o) => { mem[id] = o; persist(); },
+      del:async id => { delete mem[id]; persist(); },
+      subscribe:cb => { cb0 = cb; persist(); return () => {}; } };
+    try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
+  }
+  S.kind = store.kind;
+  const slowT = setTimeout(() => { if (!S.ready){ S.slow = true; render(); } }, 10000);
+  store.subscribe(list => {
+    clearTimeout(slowT);
+    list.sort((a, b) => a.id < b.id ? -1 : 1);
+    const sig = JSON.stringify(list);
+    S.slow = false;
+    if (S.ready && sig === S.sig) return;
+    S.sig = sig; S.docs = list; S.ready = true; render();
+  }, () => { S.slow = true; render(); });
+}
+async function save(id, o, okMsg){
+  try { await store.save(id, o); if (okMsg) toast(okMsg); return true; }
+  catch (e) { S.err = 'Não consegui salvar. Tente de novo.'; render(); return false; }
+}
+function backupAge(){ try { const t = Number(localStorage.getItem('diario-corridas-bkp') || 0); return t ? (Date.now() - t) / 864e5 : Infinity; } catch (e) { return Infinity; } }
+function markBackup(){ try { localStorage.setItem('diario-corridas-bkp', String(Date.now())); } catch (e) {} }
+
+/* ---------- peças ---------- */
+function field(label, input, hint){ return h('label', { class:'field' }, h('span', { class:'lbl', text:label }), input, hint ? h('span', { class:'hint', text:hint }) : null); }
+function tin(id, val, on, ph, mode, extra){ return h('input', Object.assign({ id, type:'text', inputmode:mode || 'decimal', autocomplete:'off', placeholder:ph || '', value:val == null ? '' : val, oninput:e => on(e.target.value) }, extra || {})); }
+function tile(label, value, sub){ return h('div', { class:'tile' }, h('div', { class:'lbl', text:label }), h('div', { class:'num', text:value }), sub ? h('div', { class:'sub', text:sub }) : null); }
+function metricTiles(m){
+  return h('div', { class:'grid2' },
+    tile('R$ por km', fmtBRL(m.rkm)), tile('Média por pedido', fmtBRL(m.ticket)),
+    tile('Tempo de trabalho', fmtDur(m.hours)), tile('R$ por hora', fmtBRL(m.rh)),
+    tile('Km rodados', fmtKm(m.km)), tile('Faturado', fmtBRL(m.fat), m.ent + (m.ent === 1 ? ' entrega' : ' entregas')));
+}
+function monthNav(){
+  const cur = monthKey(Date.now());
+  return h('div', { class:'mnav' },
+    h('button', { 'aria-label':'Mês anterior', text:'‹', onclick:() => { S.month = shiftMonth(S.month, -1); render(); } }),
+    h('div', { class:'lab', text:monthLabel(S.month) }),
+    h('button', { 'aria-label':'Próximo mês', text:'›', disabled:S.month >= cur, onclick:() => { S.month = shiftMonth(S.month, 1); render(); } }));
+}
+function platBlock(p, d, on, prefix){
+  return h('div', { class:'plat ' + p.key },
+    h('div', { class:'name', text:p.name }),
+    h('div', { class:'grid2' },
+      field('Faturado (R$)', tin(prefix + p.key + 'Fat', d[p.key + 'Fat'], v => { d[p.key + 'Fat'] = v; on(); }, '0,00')),
+      field('Entregas', tin(prefix + p.key + 'Ent', d[p.key + 'Ent'], v => { d[p.key + 'Ent'] = v; on(); }, '0', 'numeric'))));
+}
+function prog(label, txt, pct, id, cls){
+  return h('div', { class:'stack', style:'gap:6px' },
+    h('div', { class:'row between' }, h('span', { text:label }), h('b', { id, text:txt })),
+    h('div', { class:'bar' + (cls ? ' ' + cls : ''), style:'height:12px' }, h('i', { id:id ? id + 'Bar' : null, style:'width:' + Math.max(0, Math.min(100, pct || 0)) + '%' })));
+}
+function krow(color, label, sub, val, cls){
+  return h('div', { class:'krow' + (cls ? ' ' + cls : '') },
+    color ? h('span', { class:'dot', style:'background:' + color }) : h('span'),
+    h('div', { style:'min-width:0' }, h('div', { text:label, style:'font-weight:600' }), sub ? h('div', { class:'s', text:sub }) : null),
+    h('div', { class:'v', text:val }));
+}
+function splitBar(parts, label){
+  const tot = parts.reduce((s, p) => s + Math.max(0, p.v || 0), 0);
+  if (!(tot > 0)) return null;
+  return h('div', { class:'split', role:'img', 'aria-label':label }, parts.map(p => p.v > 0 ? h('i', { style:'width:' + (p.v / tot * 100) + '%;background:' + p.c }) : null));
+}
+
+/* ---------- aba Jornada ---------- */
+function viewJornada(){
+  const out = [];
+  if (S.kind === 'local' && backupAge() > 7 && doneJ().length) out.push(h('div', { class:'notice' }, 'Seus dados ficam só neste celular. ', h('a', { href:'#mais', style:'color:inherit;font-weight:600', text:'Faça um backup' }), ' de vez em quando.'));
+  const o = openJ();
+  if (!o) out.push(startCard(), dayGoalCard(), oilCard(), monthGoalCard(monthKey(Date.now())), todayCard(), lastCard());
+  else out.push(runningCard(o), dayGoalCard(), finishCard(o), oilCard(), monthGoalCard(monthKey(Date.now())));
+  return out;
+}
+function dayGoalCard(){
+  const g = cfg(), t = todayStats(), hit = t.hours >= g.gh || t.fat >= g.gf;
+  const msg = hit ? 'Meta do dia batida. O que vier agora é bônus.' : 'Bata uma das duas: faltam ' + fmtDur(Math.max(0, g.gh - t.hours)) + ' ou ' + fmtBRL(Math.max(0, g.gf - t.fat)) + '.';
+  return h('div', { class:'card' },
+    h('div', { class:'row between' }, h('h3', { text:'Meta de hoje' }), h('button', { class:'btn small', text:'Ajustar', onclick:openCfg })),
+    prog('Horas trabalhadas', fmtDur(t.hours) + ' / ' + fmtDur(g.gh), t.hours / g.gh * 100, 'gH'),
+    prog('Faturado', fmtBRL(t.fat) + ' / ' + fmtBRL(g.gf), t.fat / g.gf * 100, 'gF'),
+    h('div', { class:hit ? '' : 'muted', style:hit ? 'color:var(--good);font-weight:600' : null, text:msg }));
+}
+function monthGoalCard(mk){
+  const g = cfg(), t = aggregate(doneJ(), [], mk, g), cur = mk === monthKey(Date.now());
+  const [y, m] = mk.split('-').map(Number), nd = new Date(y, m, 0).getDate(), today = new Date().getDate();
+  const rest = Math.max(0, g.gm - t.fat), hit = t.fat >= g.gm, lines = [];
+  if (hit) lines.push('Meta do mês batida. Parabéns!');
+  else if (cur){
+    const left = nd - today + 1;
+    lines.push('Faltam ' + fmtBRL(rest) + ': são ' + fmtBRL(rest / left) + ' por dia nos ' + left + ' dias que restam, contando hoje.');
+    if (t.fat > 0) lines.push('No ritmo atual você fecha o mês com ' + fmtBRL(t.fat / today * nd) + '.');
+  } else lines.push('Ficou ' + fmtBRL(rest) + ' abaixo da meta.');
+  lines.push('Dias com meta diária batida: ' + daysHit(mk, g) + '.');
+  return h('div', { class:'card' },
+    h('div', { class:'row between' }, h('h3', { text:'Meta do mês' }), h('button', { class:'btn small', text:'Ajustar', onclick:openCfg })),
+    prog('Faturado no mês', fmtBRL(t.fat) + ' / ' + fmtBRL(g.gm), t.fat / g.gm * 100, null),
+    lines.map((l, i) => h('div', { class:i === 0 && hit ? '' : 'small muted', style:i === 0 && hit ? 'color:var(--good);font-weight:600' : null, text:l })));
+}
+function oilCard(){
+  const c = cfg(), k = curKm(), d = S.draft.oil;
+  if (c.oilLastKm == null){
+    const err = h('div', { class:'error' });
+    if (d.km === undefined && k != null) d.km = kmStr(k);
+    return h('div', { class:'card' }, h('h3', { text:'Troca de óleo' }),
+      h('div', { class:'small muted', text:'Informe o km da última troca. O app avisa a próxima a cada ' + fmtN(c.oilEvery, 0) + ' km.' }),
+      field('Km da última troca', tin('oilKm', d.km, v => { d.km = v; }, 'Ex.: 44000')), err,
+      h('button', { class:'btn', text:'Salvar km da troca', onclick:async () => {
+        const v = num(d.km); if (!isFinite(v) || v < 0){ err.textContent = 'Digite o km do odômetro na troca.'; return; }
+        if (await saveCfg({ oilLastKm:v }, 'Km da troca salvo')) d.km = undefined;
+      } }));
+  }
+  const run = k != null ? Math.max(0, k - c.oilLastKm) : 0, left = c.oilEvery - run, next = c.oilLastKm + c.oilEvery;
+  const lvl = left <= 0 ? 'bad' : left <= 200 ? 'warn' : '';
+  return h('div', { class:'card' },
+    h('div', { class:'row between' }, h('h3', { text:'Troca de óleo' }), h('span', { class:'small muted', text:fmtBRL(c.oilCost / c.oilEvery) + ' por km' })),
+    h('div', { class:'num', style:'font-size:34px;color:' + (lvl === 'bad' ? 'var(--bad)' : lvl === 'warn' ? 'var(--warn)' : 'inherit'),
+      text:left > 0 ? 'Faltam ' + fmtN(left, 0) + ' km' : 'Vencida há ' + fmtN(-left, 0) + ' km' }),
+    h('div', { class:'bar' + (lvl ? ' ' + lvl : ''), style:'height:12px' }, h('i', { style:'width:' + Math.min(100, run / c.oilEvery * 100) + '%' })),
+    h('div', { class:'small muted', text:'Última troca em ' + fmtN(c.oilLastKm, 0) + ' km · próxima em ' + fmtN(next, 0) + ' km' }),
+    h('button', { class:'btn small' + (S.armed === 'oil' ? ' armed' : ''), text:S.armed === 'oil' ? 'Confirmar troca em ' + fmtN(k || 0, 0) + ' km' : 'Troquei o óleo agora', disabled:k == null, onclick:async () => {
+      if (S.armed !== 'oil') return arm('oil');
+      S.armed = null; if (await saveCfg({ oilLastKm:k }, 'Troca registrada. Lance o valor em Custos.')) render();
+    } }));
+}
+function startCard(){
+  const d = S.draft.start, lk = lastKm();
+  if (d.km === undefined && lk != null) d.km = kmStr(lk);
+  const err = h('div', { class:'error', id:'startErr' });
+  return h('div', { class:'card' },
+    h('h2', { text:'Nova jornada' }),
+    field('Km atual da moto', tin('startKm', d.km, v => { d.km = v; }, 'Ex.: 45230'), lk != null ? 'Último fim de jornada: ' + fmtN(lk, 1) + ' km' : 'Número do odômetro agora'),
+    err,
+    h('button', { class:'btn primary', id:'btnStart', text:'Iniciar jornada', onclick:async () => {
+      const km = num(d.km);
+      if (!isFinite(km) || km < 0){ err.textContent = 'Digite o km do odômetro.'; return; }
+      S.savedId = null;
+      if (await save('j-' + Date.now(), { type:'journey', status:'open', startAt:Date.now(), startKm:km, endAt:null, endKm:null }, 'Jornada iniciada')){ d.km = undefined; S.draft.finish = {}; }
+    } }));
+}
+function todayCard(){
+  const today = ymd(Date.now()), js = doneJ().filter(j => ymd(j.startAt) === today);
+  if (!js.length) return null;
+  const t = aggregate(js, [], monthKey(Date.now()), cfg());
+  return h('div', { class:'card' }, h('h3', { text:'Hoje' }),
+    h('div', { class:'grid2' }, tile('Faturado', fmtBRL(t.fat), t.ent + ' entregas'), tile('Km rodados', fmtKm(t.km)), tile('R$ por km', fmtBRL(t.rkm)), tile('Média por pedido', fmtBRL(t.ticket))));
+}
+function lastCard(){
+  const js = doneJ();
+  if (!js.length) return h('div', { class:'card' }, h('h3', { text:'Como funciona' }),
+    h('div', { class:'muted', text:'1. Inicie a jornada com o km da moto. 2. Faça suas corridas. 3. No fim, informe o km final, o faturado e as entregas de cada plataforma. Na aba Corrida você confere se uma oferta vale a pena antes de aceitar.' }));
+  const j = js[0], m = jm(j);
+  return h('div', { class:'card' },
+    h('div', { class:'row between' }, h('h3', { text:S.savedId === j.id ? 'Jornada salva' : 'Última jornada' }), h('span', { class:'muted small', text:fmtDay(j.startAt) + ' · ' + fmtTime(j.startAt) + '–' + fmtTime(j.endAt) })),
+    metricTiles(m),
+    h('button', { class:'btn small', text:'Editar', onclick:() => openEdit(j) }));
+}
+function runningCard(o){
+  return h('div', { class:'card hero' },
+    h('div', { class:'row between' }, h('h3', { text:'Em andamento', style:'color:inherit;opacity:.8' }), h('span', { class:'small', text:'Saída ' + fmtTime(o.startAt) })),
+    h('div', { class:'num timer', id:'timer', text:fmtClock(Date.now() - o.startAt) }),
+    h('div', { class:'small', text:'Odômetro na saída: ' + fmtN(o.startKm, 1) + ' km' }));
+}
+function finishCard(o){
+  const d = S.draft.finish;
+  const err = h('div', { class:'error', id:'finErr' }), prev = h('div', { id:'finPrev' });
+  const upd = () => { prev.replaceChildren(previewFor(o, d)); const hint = $('kmHint'); if (hint){ const e = num(d.endKm); hint.textContent = isFinite(e) ? (e > o.startKm ? 'Rodou ' + fmtN(e - o.startKm, 1) + ' km' : 'O km final deve ser maior que ' + fmtN(o.startKm, 1)) : 'Saída: ' + fmtN(o.startKm, 1) + ' km'; } };
+  const kmField = field('Km final da moto', tin('endKm', d.endKm, v => { d.endKm = v; upd(); }, 'Ex.: ' + Math.round(o.startKm + 80)), 'Saída: ' + fmtN(o.startKm, 1) + ' km');
+  kmField.querySelector('.hint').id = 'kmHint';
+  const endField = field('Hora do fim (opcional)', h('input', { id:'endAt', type:'datetime-local', value:d.endAt || '', oninput:e => { d.endAt = e.target.value; upd(); } }), 'Deixe vazio para usar o horário de agora.');
+  const card = h('div', { class:'card' },
+    h('h2', { text:'Finalizar jornada' }), kmField, PLAT.map(p => platBlock(p, d, upd, 'fin-')), endField, prev, err,
+    h('button', { class:'btn primary', id:'btnFinish', text:'Salvar jornada', onclick:async () => {
+      const endKm = num(d.endKm);
+      if (!isFinite(endKm) || endKm <= o.startKm){ err.textContent = 'O km final precisa ser maior que o km inicial (' + fmtN(o.startKm, 1) + ').'; return; }
+      const endAt = d.endAt ? new Date(d.endAt).getTime() : Date.now();
+      if (!isFinite(endAt) || endAt <= o.startAt){ err.textContent = 'A hora do fim precisa ser depois do início.'; return; }
+      const vals = {};
+      for (const p of PLAT){
+        const f = d[p.key + 'Fat'] ? num(d[p.key + 'Fat']) : 0, e = d[p.key + 'Ent'] ? num(d[p.key + 'Ent']) : 0;
+        if (!isFinite(f) || f < 0 || !isFinite(e) || e < 0){ err.textContent = 'Confira os valores de ' + p.name + '.'; return; }
+        vals[p.key + 'Fat'] = Math.round(f * 100) / 100; vals[p.key + 'Ent'] = Math.round(e);
+      }
+      if (await save(o.id, Object.assign(clean(o), vals, { status:'done', endAt, endKm }), 'Jornada salva')){ S.draft.finish = {}; S.savedId = o.id; }
+    } }),
+    h('button', { class:'btn danger' + (S.armed === 'cancel' ? ' armed' : ''), text:S.armed === 'cancel' ? 'Toque de novo para descartar' : 'Descartar jornada', onclick:async () => {
+      if (S.armed !== 'cancel') return arm('cancel');
+      S.armed = null; S.draft.finish = {}; await store.del(o.id); toast('Jornada descartada');
+    } }));
+  upd();
+  return card;
+}
+function previewFor(o, d){
+  const e = num(d.endKm);
+  const j = { startKm:o.startKm, endKm:isFinite(e) ? e : o.startKm, startAt:o.startAt, endAt:d.endAt ? new Date(d.endAt).getTime() : Date.now(),
+    ifoodFat:num(d.ifoodFat) || 0, ifoodEnt:num(d.ifoodEnt) || 0, p99Fat:num(d.p99Fat) || 0, p99Ent:num(d.p99Ent) || 0 };
+  return h('div', { class:'stack' }, h('h3', { text:'Prévia' }), metricTiles(jm(j)));
+}
+
+/* ---------- aba Corrida ---------- */
+function viewCorrida(){
+  const c = cfg(), r = curRates(), d = S.draft.ride, out = [];
+  const res = h('div', { id:'rideRes' });
+  const upd = () => res.replaceChildren(verdict(judge(num(d.valor), num(d.km), r, c.minKm)));
+  out.push(h('div', { class:'card' },
+    h('h2', { text:'Essa corrida vale a pena?' }),
+    h('div', { class:'grid2' },
+      field('Valor (R$)', tin('rValor', d.valor, v => { d.valor = v; upd(); }, '0,00', 'decimal', { enterkeyhint:'next', onkeydown:e => { if (e.key === 'Enter'){ e.preventDefault(); $('rKm').focus(); } } })),
+      field('Km total', tin('rKm', d.km, v => { d.km = v; upd(); }, '0,0', 'decimal', { enterkeyhint:'done' }))),
+    h('div', { class:'hint small muted', text:'Some o km até o restaurante e até o cliente.' }),
+    res,
+    h('button', { class:'btn small', text:'Limpar', onclick:() => { d.valor = ''; d.km = ''; S.focusRide = true; render(); } })));
+  upd();
+  if (!(rawCfg() && rawCfg().custom)) out.push(h('div', { class:'notice' }, 'Os custos abaixo usam valores de exemplo. ', h('a', { href:'#mais', onclick:e => { e.preventDefault(); openCfg(); }, style:'color:inherit;font-weight:600', text:'Coloque os seus' }), ' para o cálculo ficar certo.'));
+  out.push(h('div', { class:'card hero' },
+    h('h3', { text:'Aceite a partir de', style:'color:inherit;opacity:.85' }),
+    h('div', { class:'feat' }, h('span', { class:'num', style:'font-size:60px', text:fmtBRL(r.min) }), h('span', { style:'font-size:20px;font-weight:600', text:'por km' })),
+    h('div', { class:'small', text:'Empata (cobre todos os custos): ' + fmtBRL(r.total) + '/km · Só gasolina e desgaste: ' + fmtBRL(r.variable) + '/km' })));
+  const kms = [2, 3, 4, 5, 6, 7, 8, 10, 12, 15];
+  out.push(h('div', { class:'card' }, h('h3', { text:'Valor mínimo por distância' }),
+    h('table', { class:'tbl' }, h('thead', null, h('tr', null, h('th', { text:'Km' }), h('th', { text:'Empata' }), h('th', { text:'Aceite acima de' }))),
+      h('tbody', null, kms.map(k => h('tr', null, h('td', { text:k + ' km' }), h('td', { class:'muted', text:fmtBRL(k * r.total) }), h('td', null, h('b', { text:fmtBRL(k * r.min) }))))))));
+  out.push(costPerKmCard(r, c));
+  return out;
+}
+function verdict(j){
+  if (!j) return h('div', { class:'verdict empty', text:'Digite o valor e o km da oferta.' });
+  const word = j.level === 'good' ? 'VALE A PENA' : j.level === 'warn' ? 'LUCRO BAIXO' : 'PREJUÍZO';
+  return h('div', { class:'verdict ' + j.level, role:'status' },
+    h('div', { class:'row between', style:'align-items:flex-end;flex-wrap:wrap' }, h('div', { class:'big', text:word }), h('div', { class:'rk', text:fmtBRL(j.rkm) + '/km' })),
+    h('div', { class:'ln' }, h('span', { text:'Custo da corrida' }), h('b', { text:fmtBRL(j.ct) })),
+    h('div', { class:'ln' }, h('span', { text:'Lucro' }), h('b', { text:fmtBRL(j.lucro) + ' (' + fmtBRL(j.lkm) + '/km)' })),
+    j.level === 'bad' ? h('div', { class:'small', text:j.coversVar ? 'Paga a gasolina e o desgaste, mas não cobre seguro e fixos.' : 'Não paga nem a gasolina e o desgaste.' }) : null);
+}
+function costPerKmCard(r, c){
+  const fm = fixedMonth(c);
+  return h('div', { class:'card' },
+    h('div', { class:'row between' }, h('h3', { text:'Seu custo por km' }), h('button', { class:'btn small', text:'Ajustar', onclick:openCfg })),
+    h('div', null,
+      krow('var(--k-gas)', 'Gasolina', fmtBRL(c.gas) + ' o litro ÷ ' + fmtN(c.kml, 1) + ' km/l', fmtBRL(r.gas)),
+      krow('var(--k-oil)', 'Óleo', 'troca de ' + fmtBRL(c.oilCost) + ' a cada ' + fmtN(c.oilEvery, 0) + ' km', fmtBRL(r.oil)),
+      krow('var(--k-maint)', 'Manutenção', r.maintOk ? 'gastos dos últimos 90 dias ÷ ' + fmtN(r.km90, 0) + ' km' : 'sua estimativa, até ter 2 meses de histórico', fmtBRL(r.maint)),
+      krow('var(--k-fix)', 'Seguro e fixos', fm > 0 ? fmtBRL(fm) + ' por mês ÷ ' + fmtN(r.kmRef, 0) + ' km' + (r.kmRefReal ? ' (últimos 30 dias)' : ' (estimativa)') : 'cadastre seguro e parcela em Ajustes', fmtBRL(r.fix)),
+      krow(null, 'Total por km', 'mais ' + fmtBRL(c.minKm) + '/km de lucro mínimo = ' + fmtBRL(r.min), fmtBRL(r.total), 'total')),
+    splitBar([{ v:r.gas, c:'var(--k-gas)' }, { v:r.oil, c:'var(--k-oil)' }, { v:r.maint, c:'var(--k-maint)' }, { v:r.fix, c:'var(--k-fix)' }], 'Composição do custo por km'));
+}
+
+/* ---------- aba Custos ---------- */
+function viewCustos(){
+  const d = S.draft.cost, c = cfg();
+  if (d.date === undefined) d.date = ymd(Date.now());
+  const err = h('div', { class:'error' });
+  const litField = field('Litros (opcional)', tin('cLit', d.litros, v => { d.litros = v; }, '0,0'), 'Com os litros, o app calcula seu consumo real em km/l.');
+  if (d.oilKm === undefined && curKm() != null) d.oilKm = kmStr(curKm());
+  const oilField = field('Km na troca', tin('cOilKm', d.oilKm, v => { d.oilKm = v; }, 'Ex.: 46000'), 'Atualiza o aviso da próxima troca e o custo do óleo por km.');
+  const vis = () => { litField.style.display = d.cat === 'Gasolina' ? '' : 'none'; oilField.style.display = d.cat === 'Óleo' ? '' : 'none'; };
+  const sel = h('select', { id:'cCat', onchange:e => { d.cat = e.target.value; vis(); } }, CATS.map(x => h('option', { value:x, text:x, selected:x === d.cat })));
+  vis();
+  const form = h('div', { class:'card' }, h('h2', { text:'Lançar custo' }),
+    field('Data', h('input', { id:'cDate', type:'date', value:d.date, oninput:e => { d.date = e.target.value; } })),
+    field('Categoria', sel),
+    field('Valor (R$)', tin('cVal', d.valor, v => { d.valor = v; }, '0,00')),
+    litField, oilField,
+    field('Observação (opcional)', h('input', { id:'cNote', type:'text', value:d.note || '', placeholder:'Ex.: posto da esquina', oninput:e => { d.note = e.target.value; } })),
+    err,
+    h('button', { class:'btn primary', id:'btnCost', text:'Adicionar custo', onclick:async () => {
+      const v = num(d.valor), l = d.litros ? num(d.litros) : 0, ok = d.oilKm ? num(d.oilKm) : NaN;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(d.date || '')){ err.textContent = 'Escolha a data.'; return; }
+      if (!isFinite(v) || v <= 0){ err.textContent = 'Digite o valor gasto.'; return; }
+      if (!isFinite(l) || l < 0){ err.textContent = 'Confira os litros.'; return; }
+      if (d.cat === 'Óleo' && d.oilKm && (!isFinite(ok) || ok < 0)){ err.textContent = 'Confira o km da troca.'; return; }
+      const doc = { type:'cost', date:d.date, cat:d.cat, valor:Math.round(v * 100) / 100, litros:d.cat === 'Gasolina' ? l : 0, note:(d.note || '').slice(0, 80) };
+      if (d.cat === 'Óleo' && isFinite(ok)) doc.km = ok;
+      if (!(await save('c-' + Date.now(), doc, 'Custo lançado'))) return;
+      if (d.cat === 'Óleo') await saveCfg(Object.assign({ oilCost:doc.valor }, isFinite(ok) ? { oilLastKm:ok } : {}), 'Troca de óleo registrada');
+      d.valor = ''; d.litros = ''; d.note = ''; d.oilKm = undefined; S.month = d.date.slice(0, 7); render();
+    } }),
+    h('div', { class:'small muted', text:'Seguro, parcela e IPVA não precisam ser lançados aqui: cadastre o valor por mês em Ajustes e o app divide pelos km rodados. O óleo entra no lucro diluído por km (' + fmtBRL(c.oilCost / c.oilEvery) + '/km).' }));
+  const list = costsAll().filter(x => x.date.slice(0, 7) === S.month).sort((a, b) => a.date < b.date ? 1 : -1);
+  const total = list.reduce((s, x) => s + x.valor, 0);
+  const lc = h('div', { class:'card' }, h('div', { class:'row between' }, h('h3', { text:'Lançamentos do mês' }), h('b', { text:fmtBRL(total) })),
+    list.length ? h('div', { class:'list' }, list.map(x => h('div', { class:'item', style:'cursor:default' },
+      h('div', { class:'l' }, h('span', { class:'t', text:x.cat + ' · ' + x.date.slice(8) + '/' + x.date.slice(5, 7) }), h('span', { class:'small muted', text:[x.litros ? fmtN(x.litros, 1) + ' l' : '', x.km != null ? fmtN(x.km, 0) + ' km' : '', x.note].filter(Boolean).join(' · ') })),
+      h('div', { class:'r row' }, h('b', { text:fmtBRL(x.valor) }),
+        h('button', { class:'btn small' + (S.armed === 'del-' + x.id ? ' armed' : ''), 'aria-label':'Excluir custo', text:S.armed === 'del-' + x.id ? 'Confirmar' : 'Excluir', onclick:async () => {
+          if (S.armed !== 'del-' + x.id) return arm('del-' + x.id);
+          S.armed = null; await store.del(x.id); toast('Custo excluído'); } }))))) : h('div', { class:'muted', text:'Nenhum custo neste mês.' }));
+  return [monthNav(), form, lc];
+}
+
+/* ---------- aba Resumo: semana e mês ---------- */
+function viewResumo(){
+  const seg = h('div', { class:'seg', role:'group', 'aria-label':'Período' },
+    h('button', { 'aria-pressed':String(S.rview === 'semana'), text:'Semana', onclick:() => { S.rview = 'semana'; render(); } }),
+    h('button', { 'aria-pressed':String(S.rview === 'mes'), text:'Mês', onclick:() => { S.rview = 'mes'; render(); } }));
+  return [seg, S.rview === 'mes' ? viewMes() : viewSemana()];
+}
+function viewSemana(){
+  const c = cfg(), r = curRates(), now = Date.now();
+  const R = weekRange(now + S.weekOff * 7 * 864e5, c.closeDow);
+  const w = weekAgg(doneJ(), costsAll(), R, r, c), open = R.end >= now;
+  const out = [h('div', { class:'mnav' },
+    h('button', { 'aria-label':'Semana anterior', text:'‹', onclick:() => { S.weekOff--; render(); } }),
+    h('div', { class:'lab' }, fmtDM(R.start) + ' a ' + fmtDM(R.end), h('div', { class:'small muted', style:'font-family:var(--body);font-weight:500', text:open ? 'semana aberta · fecha ' + DOW[c.closeDow].toLowerCase() : 'semana fechada' })),
+    h('button', { 'aria-label':'Próxima semana', text:'›', disabled:S.weekOff >= 0, onclick:() => { S.weekOff++; render(); } }))];
+  out.push(h('div', { class:'card hero' },
+    h('h3', { text:'Lucro estimado da semana', style:'color:inherit;opacity:.8' }),
+    h('div', { class:'num profit', text:fmtBRL(w.profit) }),
+    h('div', { class:'row between small' }, h('span', { text:'Faturamento ' + fmtBRL(w.fat) }), h('span', { text:'Custos ' + fmtBRL(w.costs) }))));
+  out.push(h('div', { class:'card' }, h('h3', { text:'Repasse' }),
+    PLAT.map(p => {
+      const P = w.plat[p.key], pd = payDate(R.end, c.closeDow, c[p.pay]);
+      const days = Math.round((dateTs(ymd(pd)) - dateTs(ymd(now))) / 864e5);
+      const st = open ? 'cai ' + fmtDay(pd) + ', depois que a semana fechar' : days > 0 ? 'cai ' + fmtDay(pd) + (days === 1 ? ' (amanhã)' : ' (em ' + days + ' dias)') : days === 0 ? 'cai hoje, ' + fmtDay(pd) : 'caiu ' + fmtDay(pd);
+      return h('div', { class:'plat ' + p.key, style:'gap:4px' },
+        h('div', { class:'row between' }, h('span', { class:'name', text:p.name }), h('span', { class:'num', style:'font-size:28px', text:fmtBRL(P.fat) })),
+        h('div', { class:'small muted', text:P.ent + ' entregas · ' + st }));
+    }),
+    h('div', { class:'small muted', text:'A semana fecha ' + DOW[c.closeDow].toLowerCase() + '. Confira as datas com o que a plataforma mostra e ajuste em Ajustes.' })));
+  out.push(h('div', { class:'grid2' },
+    tile('Km rodados', fmtKm(w.km), w.n + (w.n === 1 ? ' jornada' : ' jornadas')), tile('Entregas', String(w.ent), w.ent ? fmtBRL(w.fat / w.ent) + ' por pedido' : ''),
+    tile('R$ por km', fmtBRL(w.rkm), 'bruto'), tile('Lucro por km', fmtBRL(w.pkm), 'estimado'),
+    tile('Tempo de trabalho', fmtDur(w.hours)), tile('R$ por hora', fmtBRL(w.rh), 'bruto')));
+  const max = Math.max(0, ...w.days);
+  if (max > 0) out.push(h('div', { class:'card' }, h('h3', { text:'Faturamento por dia' }),
+    h('div', { class:'chart wk', role:'img', 'aria-label':'Faturamento por dia da semana, maior dia ' + fmtBRL(max) }, w.days.map((v, i) => h('i', { class:v ? '' : 'zero', style:'height:' + (v ? Math.max(4, v / max * 100) : 2) + '%', title:fmtBRL(v) }))),
+    h('div', { class:'axis wk' }, w.days.map((v, i) => h('span', { text:new Date(R.start + i * 864e5 + 432e5).toLocaleDateString('pt-BR', { weekday:'short' }).replace('.', '') })))));
+  out.push(h('div', { class:'small muted', style:'padding:0 4px', text:'Custo estimado: ' + fmtKm(w.km) + ' × ' + fmtBRL(r.variable) + '/km (gasolina, óleo e manutenção) + 7 dias dos custos fixos (' + fmtBRL(w.cFix) + '). Lançamentos de custo nesta semana: ' + fmtBRL(w.lanc) + '.' }));
+  return out;
+}
+function viewMes(){
+  const c = cfg(), t = aggregate(doneJ(), costsAll(), S.month, c, fixFactorFor(S.month));
+  const out = [monthNav()];
+  if (!t.n && !t.lanc){ out.push(h('div', { class:'card' }, h('div', { class:'muted', text:'Nada registrado neste mês ainda. Salve uma jornada ou lance um custo.' }))); return out; }
+  out.push(h('div', { class:'card hero' },
+    h('h3', { text:'Lucro do mês', style:'color:inherit;opacity:.8' }),
+    h('div', { class:'num profit', text:fmtBRL(t.profit) }),
+    h('div', { class:'row between small' }, h('span', { text:'Faturamento ' + fmtBRL(t.fat) }), h('span', { text:'Custos ' + fmtBRL(t.costs) })),
+    h('div', { class:'small', text:'Margem de lucro: ' + fmtPct(t.margin) })));
+  out.push(h('div', { class:'card' }, h('h3', { text:'Gasolina por km' }),
+    h('div', { class:'feat' }, h('span', { class:'num', style:'color:var(--k-gas)', text:fmtBRL(t.kGas) }), h('span', { class:'muted', text:'por km rodado' })),
+    h('div', { class:'small muted', text:t.gasEst ? 'Estimado pelo preço (' + fmtBRL(c.gas) + ') e consumo (' + fmtN(c.kml, 1) + ' km/l): nenhum abastecimento lançado no mês.' : fmtBRL(t.fuel) + ' abastecidos ÷ ' + fmtKm(t.km) + (t.kml != null ? ' · consumo real ' + fmtN(t.kml, 1) + ' km/l' : ' · lance os litros para ver o consumo real') })));
+  out.push(h('div', { class:'card' }, h('h3', { text:'Para onde vai cada km' }),
+    splitBar([{ v:t.kGas, c:'var(--k-gas)' }, { v:t.kOil, c:'var(--k-oil)' }, { v:t.kMaint, c:'var(--k-maint)' }, { v:t.kFix, c:'var(--k-fix)' }, { v:t.pkm, c:'var(--accent)' }], 'Divisão do faturamento por km entre custos e lucro'),
+    h('div', null,
+      krow(null, 'Você recebe', fmtBRL(t.fat) + ' ÷ ' + fmtKm(t.km), fmtBRL(t.rkm), 'total'),
+      krow('var(--k-gas)', 'Gasolina', fmtPct(t.fat > 0 ? t.cGas / t.fat : null) + ' do faturamento', fmtBRL(t.kGas)),
+      krow('var(--k-oil)', 'Óleo', fmtBRL(c.oilCost) + ' a cada ' + fmtN(c.oilEvery, 0) + ' km', fmtBRL(t.kOil)),
+      krow('var(--k-maint)', 'Manutenção', fmtBRL(t.cMaint) + ' no mês · ' + fmtPct(t.maintPct) + ' do faturamento', fmtBRL(t.kMaint)),
+      krow('var(--k-fix)', 'Seguro e fixos', t.fixFromCfg ? fmtBRL(t.cFix) + (fixFactorFor(S.month) < 1 ? ' até hoje (proporcional)' : ' no mês') + ' ÷ km rodados' : t.cFix > 0 ? 'lançados no mês' : 'cadastre em Ajustes', fmtBRL(t.kFix)),
+      krow(null, 'Custo por km', fmtBRL(t.costs) + ' no mês', fmtBRL(t.kCost), 'total'),
+      krow('var(--accent)', 'Lucro por km', 'margem de ' + fmtPct(t.margin), fmtBRL(t.pkm), 'total'))));
+  out.push(monthGoalCard(S.month));
+  out.push(h('div', { class:'grid2' },
+    tile('Km rodados', fmtKm(t.km), t.n + (t.n === 1 ? ' jornada' : ' jornadas')), tile('Entregas', String(t.ent), t.ent ? fmtBRL(t.ticket) + ' por pedido' : ''),
+    tile('Tempo de trabalho', fmtDur(t.hours)), tile('R$ por hora', fmtBRL(t.rh), 'bruto')));
+  const fi = t.plat.ifood, f9 = t.plat.p99, tot = fi.fat + f9.fat;
+  const col = (p, P, color) => h('div', { class:'stack', style:'gap:8px;min-width:0' },
+    h('div', { class:'row', style:'font-family:var(--display);font-size:21px;font-weight:600;gap:0' }, h('span', { class:'dot', style:'background:' + color }), p.name),
+    h('div', { class:'num', style:'font-size:28px', text:fmtBRL(P.fat) }),
+    h('div', { class:'small muted', text:P.ent + ' entregas' }),
+    h('div', { class:'small' }, h('b', { text:fmtBRL(P.ent ? P.fat / P.ent : null) }), ' por pedido'),
+    h('div', { class:'small' }, h('b', { text:fmtBRL(P.km > 0 ? P.fat / P.km : null) }), ' por km'));
+  out.push(h('div', { class:'card' }, h('h3', { text:'Por plataforma' }),
+    tot > 0 ? h('div', { class:'split', role:'img', 'aria-label':'iFood ' + Math.round(fi.fat / tot * 100) + '%, 99Food ' + Math.round(f9.fat / tot * 100) + '%' },
+      h('i', { style:'width:' + (fi.fat / tot * 100) + '%;background:var(--ifood)' }), h('i', { style:'width:' + (f9.fat / tot * 100) + '%;background:var(--p99)' })) : null,
+    h('div', { class:'grid2' }, col(PLAT[0], fi, 'var(--ifood)'), col(PLAT[1], f9, 'var(--p99)')),
+    h('div', { class:'small muted', text:'O km de cada plataforma é dividido pelas entregas de cada jornada, então vale como estimativa quando você roda nas duas ao mesmo tempo.' })));
+  const [y, m] = S.month.split('-').map(Number), nd = new Date(y, m, 0).getDate(), max = Math.max(0, ...Object.values(t.days));
+  if (max > 0){
+    const bars = []; for (let d = 1; d <= nd; d++){ const v = t.days[d] || 0; bars.push(h('i', { class:v ? '' : 'zero', style:'height:' + (v ? Math.max(4, v / max * 100) : 2) + '%', title:'Dia ' + d + ': ' + fmtBRL(v) })); }
+    out.push(h('div', { class:'card' }, h('h3', { text:'Faturamento por dia' }), h('div', { class:'chart', role:'img', 'aria-label':'Faturamento por dia do mês, máximo ' + fmtBRL(max) }, bars),
+      h('div', { class:'axis' }, h('span', { text:'dia 1' }), h('span', { text:'maior dia: ' + fmtBRL(max) }), h('span', { text:'dia ' + nd }))));
+  }
+  const cats = Object.entries(t.cats).sort((a, b) => b[1] - a[1]);
+  if (cats.length) out.push(h('div', { class:'card' }, h('h3', { text:'Gastos lançados' }),
+    cats.map(([k, v]) => h('div', { class:'stack', style:'gap:6px' }, h('div', { class:'row between' }, h('span', { text:k }), h('b', { text:fmtBRL(v) })), h('div', { class:'bar' }, h('i', { style:'width:' + (v / t.lanc * 100) + '%' })))),
+    t.oilLanc > 0 ? h('div', { class:'small muted', text:'As trocas de óleo lançadas não somam de novo no lucro: o óleo já entra diluído por km.' }) : null));
+  return out;
+}
+
+/* ---------- aba Mais ---------- */
+function viewMais(){
+  const out = [];
+  if (S.installEvt) out.push(h('button', { class:'btn primary', text:'Instalar app no celular', onclick:async () => { const e = S.installEvt; S.installEvt = null; try { await e.prompt(); } catch (x) {} render(); } }));
+  out.push(h('div', { class:'card' }, h('h3', { text:'Ajustes' }),
+    h('div', { class:'small muted', text:'Metas, preço da gasolina, troca de óleo, seguro e fixos, lucro mínimo por km e dias do repasse.' }),
+    h('button', { class:'btn', id:'btnCfg', text:'Abrir ajustes', onclick:openCfg })));
+  const js = doneJ().filter(j => monthKey(j.startAt) === S.month);
+  out.push(monthNav(), h('div', { class:'card' }, h('h3', { text:'Jornadas do mês' }),
+    js.length ? h('div', { class:'list' }, js.map(j => { const m = jm(j); return h('button', { class:'item', onclick:() => openEdit(j) },
+      h('div', { class:'l' }, h('span', { class:'t', text:fmtDay(j.startAt) }), h('span', { class:'small muted', text:fmtTime(j.startAt) + '–' + fmtTime(j.endAt) + ' · ' + fmtKm(m.km) + ' · ' + m.ent + ' entregas' })),
+      h('div', { class:'r' }, h('div', { class:'t', text:fmtBRL(m.fat) }), h('div', { class:'small muted', text:fmtBRL(m.rkm) + '/km' }))); })) : h('div', { class:'muted', text:'Nenhuma jornada salva neste mês.' })));
+  out.push(backupCard());
+  return out;
+}
+function backupCard(){
+  const c = h('div', { class:'card' }, h('h3', { text:'Backup' }),
+    h('div', { class:'small muted', text:S.kind === 'local' ? 'Seus dados ficam só neste celular. Baixe uma cópia de vez em quando e guarde no Drive ou no WhatsApp.' : 'Baixe uma cópia dos seus dados. O mesmo arquivo restaura tudo no app instalado.' }),
+    h('button', { class:'btn', text:'Baixar backup (JSON)', onclick:() => saveFile('diario-corridas-backup.json', JSON.stringify({ app:'diario-corridas', version:2, exportedAt:new Date().toISOString(), docs:S.docs.map(o => Object.assign({ id:o.id }, clean(o))) }, null, 1), true) }),
+    h('button', { class:'btn', text:'Baixar jornadas (planilha CSV)', onclick:() => saveFile('jornadas.csv', csvJourneys()) }),
+    h('button', { class:'btn', text:'Baixar custos (planilha CSV)', onclick:() => saveFile('custos.csv', csvCosts()) }),
+    field('Restaurar backup', h('input', { id:'restore', type:'file', accept:'.json,application/json', style:'height:auto;padding:10px;font-size:15px', onchange:e => restore(e.target.files[0]) })));
+  if (S.exportText){
+    const ta = h('textarea', { readonly:true, 'aria-label':'Conteúdo para copiar', value:S.exportText });
+    c.append(h('div', { class:'notice', text:'Não deu para salvar o arquivo aqui. Copie o texto abaixo e guarde onde preferir (' + S.exportName + ').' }), ta,
+      h('button', { class:'btn', text:'Copiar texto', onclick:async () => { ta.select(); try { await navigator.clipboard.writeText(S.exportText); toast('Copiado'); } catch (e) { toast('Selecione e copie manualmente'); } } }));
+  }
+  return c;
+}
+const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+const dec = n => String(n == null ? '' : n).replace('.', ',');
+function csvJourneys(){
+  const rows = [['Data','Início','Fim','Km inicial','Km final','Km rodados','iFood R$','iFood entregas','99Food R$','99Food entregas','Faturado','Entregas','R$ por km','Média por pedido','Horas']];
+  doneJ().slice().reverse().forEach(j => { const m = jm(j); rows.push([ymd(j.startAt), fmtTime(j.startAt), fmtTime(j.endAt), dec(j.startKm), dec(j.endKm), dec(+m.km.toFixed(1)), dec(j.ifoodFat), j.ifoodEnt, dec(j.p99Fat), j.p99Ent, dec(+m.fat.toFixed(2)), m.ent, dec(m.rkm == null ? '' : +m.rkm.toFixed(2)), dec(m.ticket == null ? '' : +m.ticket.toFixed(2)), dec(+m.hours.toFixed(2))]); });
+  return '﻿' + rows.map(r => r.map(q).join(';')).join('\r\n');
+}
+function csvCosts(){
+  const rows = [['Data','Categoria','Valor','Litros','Km','Observação']];
+  costsAll().sort((a, b) => a.date < b.date ? -1 : 1).forEach(x => rows.push([x.date, x.cat, dec(x.valor), dec(x.litros || ''), dec(x.km == null ? '' : x.km), x.note || '']));
+  return '﻿' + rows.map(r => r.map(q).join(';')).join('\r\n');
+}
+async function saveFile(name, text, isBackup){
+  try { if (!dlPromise) dlPromise = window.claude ? window.claude.use('downloads') : Promise.resolve(null); } catch (e) { dlPromise = Promise.resolve(null); }
+  const dl = await dlPromise.catch(() => null);
+  if (dl){
+    try { await dl.save({ filename:name, data:text }); S.exportText = ''; if (isBackup) markBackup(); toast('Arquivo salvo'); render(); return; }
+    catch (e) { if (e && e.code === 'declined') return; }
+  } else if (!window.claude){
+    try {
+      const type = name.endsWith('.csv') ? 'text/csv' : 'application/json';
+      const file = new File([text], name, { type });
+      if (navigator.canShare && navigator.canShare({ files:[file] })){ await navigator.share({ files:[file], title:name }); if (isBackup) markBackup(); render(); return; }
+      const a = h('a', { href:URL.createObjectURL(file), download:name }); document.body.append(a); a.click(); a.remove();
+      if (isBackup) markBackup(); toast('Arquivo baixado'); render(); return;
+    } catch (e) { if (e && e.name === 'AbortError') return; }
+  }
+  S.exportText = text; S.exportName = name; render();
+}
+async function restore(file){
+  if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    const list = (data.docs || []).filter(d => d && /^([jc]-[\w.~:@+-]{1,60}|cfg)$/.test(d.id) && (d.type === 'journey' || d.type === 'cost' || d.type === 'config'));
+    if (!list.length){ toast('Arquivo sem dados válidos'); return; }
+    for (const d of list) await store.save(d.id, clean(d));
+    toast(list.length + ' registros restaurados');
+  } catch (e) { toast('Arquivo inválido'); }
+}
+
+/* ---------- ajustes (folha) ---------- */
+const CFG_NUM = [['gh','Meta do dia: horas',1],['gf','Meta do dia: faturamento (R$)',1],['gm','Meta do mês: faturamento (R$)',1],
+  ['gas','Preço do litro (R$)',1],['kml','Consumo da moto (km por litro)',1],['oilEvery','Trocar o óleo a cada (km)',1],['oilCost','Custo da troca de óleo (R$)',0],['oilLastKm','Km da última troca',0],
+  ['seguro','Seguro (R$ por mês)',0],['parcela','Parcela da moto (R$ por mês)',0],['fixOutros','IPVA, licenciamento e outros (R$ por mês)',0],['kmMes','Km rodados por mês (estimativa)',1],['maintKm','Reserva de manutenção por km (R$)',0],['minKm','Lucro mínimo que você quer por km (R$)',0]];
+function openCfg(){
+  const c = cfg(), d = S.draft.cfg = {};
+  CFG_NUM.forEach(([k]) => { d[k] = c[k] == null ? '' : kmStr(c[k]); });
+  ['closeDow','payIfood','pay99'].forEach(k => { d[k] = String(c[k]); });
+  S.cfgOpen = true; render();
+}
+function cfgSheet(){
+  const d = S.draft.cfg, err = h('div', { class:'error' }), r = curRates();
+  const mreal = aggregate(doneJ(), costsAll(), monthKey(Date.now()), cfg());
+  const lbl = Object.fromEntries(CFG_NUM.map(x => [x[0], x[1]]));
+  const nf = (k, hint) => field(lbl[k], tin('cfg-' + k, d[k], v => { d[k] = v; }), hint);
+  const sel = (k, label, hint) => field(label, h('select', { id:'cfg-' + k, onchange:e => { d[k] = e.target.value; } }, DOW.map((n, i) => h('option', { value:String(i), text:n, selected:String(i) === d[k] }))), hint);
+  const sec = t => h('h3', { text:t, style:'margin-top:10px' });
+  return h('div', { class:'panel' },
+    h('div', { class:'row between' }, h('h2', { text:'Ajustes' }), h('button', { class:'btn small', text:'Fechar', onclick:() => { S.cfgOpen = false; render(); } })),
+    sec('Metas'), nf('gh', 'Se bater as horas ou o faturamento, a meta do dia está cumprida.'), nf('gf'), nf('gm'),
+    sec('Gasolina'), nf('gas'), nf('kml', mreal.kml != null ? 'Seu consumo real neste mês: ' + fmtN(mreal.kml, 1) + ' km/l.' : 'Lance os litros ao abastecer para ver o consumo real.'),
+    sec('Troca de óleo'), nf('oilEvery'), nf('oilCost', 'O custo é dividido pelos km entre trocas.'), nf('oilLastKm', 'Deixe vazio se não souber.'),
+    sec('Custos fixos do mês'), nf('seguro'), nf('parcela'), nf('fixOutros'),
+    nf('kmMes', r.kmRefReal ? 'Nos últimos 30 dias você rodou ' + fmtN(r.kmRef, 0) + ' km, e o app usa esse número.' : 'Usado para dividir os fixos por km até você ter 30 dias de jornadas.'),
+    nf('maintKm', r.maintOk ? 'Com 2 meses de histórico, o app já usa seus gastos reais: ' + fmtBRL(r.maint) + '/km.' : 'Pneus, relação, freio, revisão. Usado até você ter 2 meses de histórico.'),
+    sec('Corrida'), nf('minKm', 'Acima do custo, quanto você quer ganhar por km para a corrida ficar verde.'),
+    sec('Fechamento semanal'), sel('closeDow', 'A semana fecha no(a)', 'Último dia da semana de repasse.'), sel('payIfood', 'Repasse do iFood cai no(a)'), sel('pay99', 'Repasse do 99Food cai no(a)'),
+    err,
+    h('button', { class:'btn primary', id:'btnSaveCfg', text:'Salvar ajustes', onclick:async () => {
+      const vals = {};
+      for (const [k, label, pos] of CFG_NUM){
+        const s = String(d[k] == null ? '' : d[k]).trim();
+        if (k === 'oilLastKm' && !s){ vals[k] = null; continue; }
+        const v = num(s);
+        if (!isFinite(v) || v < 0 || (pos && v <= 0)){ err.textContent = 'Confira: ' + label + '.'; return; }
+        vals[k] = v;
+      }
+      ['closeDow','payIfood','pay99'].forEach(k => { vals[k] = Number(d[k]); });
+      if (await save('cfg', Object.assign({ type:'config', custom:true }, vals), 'Ajustes salvos')){ S.cfgOpen = false; render(); }
+    } }));
+}
+
+/* ---------- editar jornada (folha) ---------- */
+function openEdit(j){
+  S.editId = j.id;
+  S.draft.edit = { startAt:toLocalInput(j.startAt), endAt:toLocalInput(j.endAt), startKm:kmStr(j.startKm), endKm:kmStr(j.endKm),
+    ifoodFat:kmStr(j.ifoodFat || ''), ifoodEnt:String(j.ifoodEnt || ''), p99Fat:kmStr(j.p99Fat || ''), p99Ent:String(j.p99Ent || '') };
+  S.err = ''; render();
+}
+function editSheet(){
+  const j = S.docs.find(x => x.id === S.editId); if (!j){ S.editId = null; return null; }
+  const d = S.draft.edit, err = h('div', { class:'error', text:S.err }), prev = h('div');
+  const upd = () => { const s = num(d.startKm), e = num(d.endKm); prev.replaceChildren(metricTiles(jm({ startKm:isFinite(s) ? s : 0, endKm:isFinite(e) ? e : 0, startAt:new Date(d.startAt).getTime(), endAt:new Date(d.endAt).getTime(),
+    ifoodFat:num(d.ifoodFat) || 0, ifoodEnt:num(d.ifoodEnt) || 0, p99Fat:num(d.p99Fat) || 0, p99Ent:num(d.p99Ent) || 0 }))); };
+  const panel = h('div', { class:'panel' },
+    h('div', { class:'row between' }, h('h2', { text:'Editar jornada' }), h('button', { class:'btn small', text:'Fechar', onclick:() => { S.editId = null; S.err = ''; render(); } })),
+    field('Início', h('input', { id:'eStart', type:'datetime-local', value:d.startAt, oninput:e => { d.startAt = e.target.value; upd(); } })),
+    field('Fim', h('input', { id:'eEnd', type:'datetime-local', value:d.endAt, oninput:e => { d.endAt = e.target.value; upd(); } })),
+    h('div', { class:'grid2' }, field('Km inicial', tin('eSK', d.startKm, v => { d.startKm = v; upd(); })), field('Km final', tin('eEK', d.endKm, v => { d.endKm = v; upd(); }))),
+    PLAT.map(p => platBlock(p, d, upd, 'ed-')), prev, err,
+    h('button', { class:'btn primary', text:'Salvar alterações', onclick:async () => {
+      const sk = num(d.startKm), ek = num(d.endKm), sa = new Date(d.startAt).getTime(), ea = new Date(d.endAt).getTime();
+      if (!isFinite(sk) || !isFinite(ek) || ek <= sk){ S.err = 'O km final precisa ser maior que o inicial.'; return render(); }
+      if (!isFinite(sa) || !isFinite(ea) || ea <= sa){ S.err = 'Confira as datas e horas.'; return render(); }
+      const vals = {};
+      for (const p of PLAT){ const f = d[p.key + 'Fat'] ? num(d[p.key + 'Fat']) : 0, e = d[p.key + 'Ent'] ? num(d[p.key + 'Ent']) : 0;
+        if (!isFinite(f) || f < 0 || !isFinite(e) || e < 0){ S.err = 'Confira os valores de ' + p.name + '.'; return render(); }
+        vals[p.key + 'Fat'] = Math.round(f * 100) / 100; vals[p.key + 'Ent'] = Math.round(e); }
+      if (await save(j.id, Object.assign(clean(j), vals, { startAt:sa, endAt:ea, startKm:sk, endKm:ek }), 'Alterações salvas')){ S.editId = null; S.err = ''; render(); }
+    } }),
+    h('button', { class:'btn danger' + (S.armed === 'del-' + j.id ? ' armed' : ''), text:S.armed === 'del-' + j.id ? 'Toque de novo para excluir' : 'Excluir jornada', onclick:async () => {
+      if (S.armed !== 'del-' + j.id) return arm('del-' + j.id);
+      S.armed = null; S.editId = null; await store.del(j.id); toast('Jornada excluída'); render(); } }));
+  upd();
+  return panel;
+}
+
+/* ---------- render ---------- */
+function render(){
+  $('tabs').replaceChildren(...TABS.map(t => h('button', { 'aria-current':S.tab === t.id ? 'page' : null, onclick:() => go(t.id) },
+    (() => { const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('aria-hidden', 'true'); s.innerHTML = t.icon; return s; })(), t.label)));
+  const main = $('main');
+  if (!S.ready){
+    main.replaceChildren(h('div', { class:'card' }, h('div', { class:'muted', text:S.slow ? 'O armazenamento ainda não respondeu. Confira a conexão e aguarde um instante.' : 'Carregando seus dados…' })));
+  } else {
+    const v = S.tab === 'corrida' ? viewCorrida() : S.tab === 'custos' ? viewCustos() : S.tab === 'resumo' ? viewResumo() : S.tab === 'mais' ? viewMais() : viewJornada();
+    main.replaceChildren(...[S.slow ? h('div', { class:'notice', text:'Sem resposta do armazenamento. Os dados exibidos podem estar desatualizados.' }) : null, S.err && !S.editId ? h('div', { class:'notice', text:S.err }) : null, v].flat(Infinity).filter(Boolean));
+    if (S.tab === 'corrida' && S.focusRide){ S.focusRide = false; const i = $('rValor'); if (i) i.focus(); }
+  }
+  const sheet = $('sheet'), panel = !S.ready ? null : S.cfgOpen ? cfgSheet() : S.editId ? editSheet() : null;
+  sheet.replaceChildren(...(panel ? [panel] : []));
+  document.body.style.overflow = panel ? 'hidden' : '';
+}
+function route(){ let id = location.hash.slice(1); id = OLD[id] || id; if (TABS.some(t => t.id === id)){ S.tab = id; if (id === 'corrida') S.focusRide = true; } }
+window.addEventListener('hashchange', () => { route(); render(); });
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); S.installEvt = e; render(); });
+setInterval(() => {
+  const el = $('timer'), o = openJ(); if (el && o) el.textContent = fmtClock(Date.now() - o.startAt);
+  const gh = $('gH'); if (gh){ const g = cfg(), t = todayStats(); gh.textContent = fmtDur(t.hours) + ' / ' + fmtDur(g.gh); const b = $('gHBar'); if (b) b.style.width = Math.max(0, Math.min(100, t.hours / g.gh * 100)) + '%'; }
+}, 1000);
+try { if (!window.claude && 'serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => {}); } catch (e) {}
+route(); render(); initStore();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+DIÁRIO DE CORRIDAS — app para Android
+
+1. Hospede esta pasta inteira num endereço https (GitHub Pages, Vercel ou Netlify, todos grátis).
+   Os arquivos precisam ficar juntos: index.html, manifest.webmanifest, sw.js e os 3 ícones.
+2. No celular, abra o endereço no Chrome.
+3. Toque nos três pontinhos > "Instalar app" (ou "Adicionar à tela inicial").
+4. Pronto: o ícone aparece na tela, abre em tela cheia e funciona sem internet.
+
+Dica: segure o dedo no ícone para ir direto em "Calcular corrida".
+
+Para levar seus dados atuais:
+- No artefato do Claude: Mais > Backup > Baixar backup (JSON).
+- No app instalado: Mais > Restaurar backup > escolha o arquivo.
+
+Os dados do app instalado ficam só no celular. Faça backup de vez em quando
+(Mais > Backup) e guarde no Drive ou no WhatsApp.
